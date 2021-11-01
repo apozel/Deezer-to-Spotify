@@ -1,10 +1,10 @@
 ##
-## THIS CODE IS EXTRACTED AND MODIFIED FROM 
-## https://github.com/helpsterTee/spotify-playlists-2-deezer/blob/b6e3621b4b778ab11a8ce59d0973c603fda99e2d/spotify-restore.py#L143-L200
+# THIS CODE IS EXTRACTED AND MODIFIED FROM
+# https://github.com/helpsterTee/spotify-playlists-2-deezer/blob/b6e3621b4b778ab11a8ce59d0973c603fda99e2d/spotify-restore.py#L143-L200
 ##
-## ACCORDINGLY, THE REPOSITORY LICENSE DOES NOT APPLY TO THIS FILE,
-## AND THE FOLLOWING LICENSE (FROM https://github.com/helpsterTee/spotify-playlists-2-deezer/blob/85a405dbf6df161cf63a89494a7009915e5ade25/LICENSE)
-## APPLIES TO THIS FILE, AND THIS FILE ONLY
+# ACCORDINGLY, THE REPOSITORY LICENSE DOES NOT APPLY TO THIS FILE,
+# AND THE FOLLOWING LICENSE (FROM https://github.com/helpsterTee/spotify-playlists-2-deezer/blob/85a405dbf6df161cf63a89494a7009915e5ade25/LICENSE)
+# APPLIES TO THIS FILE, AND THIS FILE ONLY
 ##
 
 '''
@@ -32,6 +32,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
+import logging
 import re
 import http.client
 import http.server
@@ -40,59 +41,71 @@ import urllib.parse
 import urllib.request
 import webbrowser
 
-## Authorize code
-def authorize(app_id, secret, scope="basic_access,manage_library"):
-	webbrowser.open('https://connect.deezer.com/oauth/auth.php?' + urllib.parse.urlencode({
-		'app_id': app_id,
-		'redirect_uri': 'http://localhost:8080/authfinish',
-		'perms': scope
-	}))
+# Authorize code
 
-	# Start a simple, local HTTP server to listen for the authorization token... (i.e. a hack).
-	server = _AuthorizationServer('localhost', 8080)
-	try:
-		while True:
-			server.handle_request()
-	except _Authorization as auth:
-		return get_actual_token(app_id, secret, auth.access_token)
+
+def authorize(app_id, secret, scope="basic_access,manage_library"):
+    url = 'https://connect.deezer.com/oauth/auth.php?' + urllib.parse.urlencode({
+        'app_id': app_id,
+        'redirect_uri': 'http://localhost:8080/authfinish',
+        'perms': scope
+    })
+    webbrowser.open(url)
+
+    logging.info('browser open to : ' + url)
+    # Start a simple, local HTTP server to listen for the authorization token... (i.e. a hack).
+    server = _AuthorizationServer('localhost', 8080)
+    try:
+        while True:
+            server.handle_request()
+    except _Authorization as auth:
+        return get_actual_token(app_id, secret, auth.access_token)
+
 
 class _AuthorizationServer(http.server.HTTPServer):
-	def __init__(self, host, port):
-		http.server.HTTPServer.__init__(self, (host, port), _AuthorizationHandler)
+    def __init__(self, host, port):
+        http.server.HTTPServer.__init__(
+            self, (host, port), _AuthorizationHandler)
 
-	# Disable the default error handling.
-	def handle_error(self, request, client_address):
-		raise
+    # Disable the default error handling.
+    def handle_error(self, request, client_address):
+        raise
+
 
 class _AuthorizationHandler(http.server.BaseHTTPRequestHandler):
-	def do_GET(self):
-		# Read access_token and use an exception to kill the server listening...
-		if self.path.startswith('/authfinish?'):
-			self.send_response(200)
-			self.send_header('Content-Type', 'text/html')
-			self.end_headers()
-			self.wfile.write(b'<script>close()</script>Thanks! You may now close this window.')
-			raise _Authorization(re.search('code=([^&]*)', self.path).group(1))
+    def do_GET(self):
+        # Read access_token and use an exception to kill the server listening...
+        if self.path.startswith('/authfinish?'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(
+                b'<script>close()</script>Thanks! You may now close this window.')
+            raise _Authorization(re.search('code=([^&]*)', self.path).group(1))
 
-		else:
-			self.send_error(404)
+        else:
+            self.send_error(404)
 
-	# Disable the default logging.
-	def log_message(self, format, *args):
-		pass
+    # Disable the default logging.
+    def log_message(self, format, *args):
+        pass
+
 
 class _Authorization(Exception):
-	def __init__(self, access_token):
-		self.access_token = access_token
+    def __init__(self, access_token):
+        self.access_token = access_token
 
 # the other one is actually a "code", so now get the real token
+
+
 def get_actual_token(app_id, secret, code):
-	f = urllib.request.urlopen("https://connect.deezer.com/oauth/access_token.php?app_id="+app_id+"&secret="+secret+"&code="+code)
-	fstr = f.read().decode('utf-8')
+    f = urllib.request.urlopen(
+        "https://connect.deezer.com/oauth/access_token.php?app_id="+app_id+"&secret="+secret+"&code="+code)
+    fstr = f.read().decode('utf-8')
 
-	if len(fstr.split('&')) != 2:
-		raise Exception
+    if len(fstr.split('&')) != 2:
+        raise Exception
 
-	stri = fstr.split('&')[0].split('=')[1]
-	token = stri
-	return token
+    stri = fstr.split('&')[0].split('=')[1]
+    token = stri
+    return token
